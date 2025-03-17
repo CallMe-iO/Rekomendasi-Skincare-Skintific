@@ -5,7 +5,7 @@ st.title("Sistem Diagnosa Skincare & Rekomendasi Sunscreen")
 st.write("Selamat datang! Pilih jenis kulit dan masalah kulit Anda untuk mendapatkan rekomendasi yang cerdas dan mendekati ideal.")
 
 st.sidebar.title("Navigasi")
-option = st.sidebar.selectbox("Pilih Menu", ["Diagnosis & Rekomendasi", "Rekomendasi Sunscreen Saja"])
+option = st.sidebar.selectbox("Pilih Menu", ["Diagnosis & Rekomendasi"])
 
 if option == "Diagnosis & Rekomendasi":
     st.header("Diagnosis & Rekomendasi Skincare + Sunscreen")
@@ -51,22 +51,3 @@ if option == "Diagnosis & Rekomendasi":
                 else:
                     st.warning("Tidak ada rekomendasi sunscreen yang cocok.")
                     
-elif option == "Rekomendasi Sunscreen Saja":
-    st.header("Rekomendasi Sunscreen")
-    skin_types = ["Berminyak", "Kering", "Kombinasi", "Semua Jenis Kulit", "Sensitif", "Kulit Berjerawat"]
-    selected_skin_type = st.radio("Pilih Jenis Kulit Anda", skin_types)
-    
-    from routes import skincare
-    if st.button("Rekomendasikan Sunscreen"):
-        with st.spinner("Mencari rekomendasi..."):
-            sunscreen_recs = skincare.skincare_api(selected_skin_type)
-            if sunscreen_recs:
-                st.success("Rekomendasi sunscreen ditemukan!")
-                for prod in sunscreen_recs:
-                    st.image(prod['gambar_path'], width=200)
-                    st.subheader(prod['nama'])
-                    st.write(prod['deskripsi'])
-                    st.write(f"Harga: {prod['harga']}")
-                    st.markdown("---")
-            else:
-                st.warning("Tidak ada rekomendasi sunscreen yang cocok.")
