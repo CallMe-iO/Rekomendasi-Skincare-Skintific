@@ -253,6 +253,7 @@ def insert_produk_data():
             "gambar_path": "assets/images/skincare/ceramide_repair_serum.jpg",
             "kategori": "skincare"
         },
+        # Data sunscreen
         {
             "nama": "5X Ceramide Serum Sunscreen SPF50 PA++++",
             "jenis_kulit": "Semua Jenis Kulit",
@@ -300,7 +301,6 @@ def insert_produk_data():
         }
     ]
     
-    # Sisipkan data produk dan relasi ke masalah kulit
     for prod in produk_data:
         jenis_id = jenis_mapping.get(prod["jenis_kulit"])
         cursor.execute('''
@@ -309,7 +309,7 @@ def insert_produk_data():
         ''', (prod["nama"], jenis_id, prod["deskripsi"], prod["harga"], prod["gambar_path"], prod["kategori"]))
         produk_id = cursor.lastrowid
         
-        # Jika produk memiliki issues, sisipkan relasi ke tabel produk_masalah
+        # Sisipkan relasi ke tabel produk_masalah (hanya untuk produk skincare)
         if prod["issues"]:
             for issue in prod["issues"]:
                 masalah_id = masalah_mapping.get(issue)
@@ -323,7 +323,7 @@ def insert_produk_data():
     conn.close()
 
 if __name__ == '__main__':
-    drop_tables()      # Drop tabel lama agar skema baru terpaksa dibuat ulang
+    drop_tables()      # Hapus tabel lama agar skema baru dipaksa dibuat ulang
     create_tables()
     insert_reference_data()
     insert_produk_data()
