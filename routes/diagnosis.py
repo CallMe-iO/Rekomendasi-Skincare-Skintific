@@ -1,13 +1,8 @@
-from models import forward_chaining, data_loader
+from models import forward_chaining
 
 def diagnosis_api(skin_type, skin_issues):
     """
     API diagnosis untuk skincare.
-    Mengembalikan data produk rekomendasi berdasarkan forward chaining.
+    Mengembalikan produk rekomendasi berdasarkan forward chaining.
     """
-    product_ids = forward_chaining.diagnose_skincare(skin_type, skin_issues)
-    if product_ids:
-        products = data_loader.get_produk_by_ids(product_ids)
-        return products
-    else:
-        return []
+    return forward_chaining.diagnose_skincare(skin_type, skin_issues)

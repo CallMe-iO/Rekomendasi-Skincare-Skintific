@@ -1,20 +1,31 @@
 import sqlite3
 import os
 
-# Pastikan folder database sudah ada
+# Pastikan folder database ada
 if not os.path.exists("database"):
     os.makedirs("database")
 
+DB_PATH = "database/skincare.db"
+
+def drop_tables():
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("DROP TABLE IF EXISTS produk_masalah")
+    cursor.execute("DROP TABLE IF EXISTS produk")
+    cursor.execute("DROP TABLE IF EXISTS jenis_kulit")
+    cursor.execute("DROP TABLE IF EXISTS masalah_kulit")
+    conn.commit()
+    conn.close()
+
 def create_tables():
-    conn = sqlite3.connect('database/skincare.db')
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
     # Tabel jenis_kulit
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS jenis_kulit (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        tipe TEXT NOT NULL,
-        description TEXT
+        nama TEXT NOT NULL UNIQUE
     )
     ''')
     
@@ -22,8 +33,7 @@ def create_tables():
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS masalah_kulit (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        nama TEXT NOT NULL,
-        description TEXT
+        nama TEXT NOT NULL UNIQUE
     )
     ''')
     
@@ -32,88 +42,289 @@ def create_tables():
     CREATE TABLE IF NOT EXISTS produk (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         nama TEXT NOT NULL,
+        jenis_kulit_id INTEGER NOT NULL,
         deskripsi TEXT,
         harga TEXT,
         gambar_path TEXT,
-        kategori TEXT  -- 'skincare' atau 'sunscreen'
+        kategori TEXT,  -- 'skincare' atau 'sunscreen'
+        FOREIGN KEY (jenis_kulit_id) REFERENCES jenis_kulit(id)
     )
     ''')
     
-    # Tabel aturan (rules)
+    # Tabel relasi produk dan masalah kulit
     cursor.execute('''
-    CREATE TABLE IF NOT EXISTS aturan (
+    CREATE TABLE IF NOT EXISTS produk_masalah (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        kategori TEXT,  -- 'skincare' atau 'sunscreen'
-        skin_type TEXT,
-        skin_issues TEXT,  -- daftar masalah kulit dipisahkan koma; bisa NULL untuk sunscreen
-        rekomendasi_produk_ids TEXT,  -- daftar ID produk (dipisah koma)
-        deskripsi TEXT
+        produk_id INTEGER NOT NULL,
+        masalah_kulit_id INTEGER NOT NULL,
+        FOREIGN KEY (produk_id) REFERENCES produk(id),
+        FOREIGN KEY (masalah_kulit_id) REFERENCES masalah_kulit(id)
     )
     ''')
     
     conn.commit()
     conn.close()
 
-def insert_dummy_data():
-    conn = sqlite3.connect('database/skincare.db')
+def insert_reference_data():
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
     # Data jenis kulit
-    jenis_kulit_data = [
-        ('Berminyak', 'Kulit yang berminyak dan rentan terhadap jerawat.'),
-        ('Kombinasi', 'Kulit kombinasi antara berminyak dan kering.'),
-        ('Semua Jenis Kulit', 'Cocok untuk semua jenis kulit.'),
-        ('Sensitif', 'Kulit yang mudah iritasi.'),
-        ('Kulit Berjerawat', 'Kulit dengan masalah jerawat.')
-    ]
-    cursor.executemany('INSERT INTO jenis_kulit (tipe, description) VALUES (?, ?)', jenis_kulit_data)
+    skin_types = ["Berminyak", "Kering", "Kombinasi", "Semua Jenis Kulit", "Sensitif", "Kulit Berjerawat"]
+    for st in skin_types:
+        cursor.execute("INSERT OR IGNORE INTO jenis_kulit (nama) VALUES (?)", (st,))
     
     # Data masalah kulit
-    masalah_kulit_data = [
-        ('Jerawat', 'Masalah jerawat di wajah.'),
-        ('Komedo', 'Masalah komedo pada kulit.'),
-        ('Pori-pori besar', 'Pori-pori wajah tampak besar.'),
-        ('Kulit kering', 'Kulit terasa kering dan dehidrasi.'),
-        ('Bekas jerawat', 'Bekas jerawat yang sulit hilang.')
+    skin_issues = [
+        "Jerawat", "Kulit Berminyak", "Komedo", "Skin Barrier Bermasalah",
+        "Dehidrasi", "Kemerahan", "Kulit Bertekstur", "Kusam",
+        "Penuaan Dini", "Noda Hitam", "Bintik Hitam",
+        "Warna Kulit Tidak Merata", "Tekstur Tidak Merata", "Iritasi"
     ]
-    cursor.executemany('INSERT INTO masalah_kulit (nama, description) VALUES (?, ?)', masalah_kulit_data)
+    for issue in skin_issues:
+        cursor.execute("INSERT OR IGNORE INTO masalah_kulit (nama) VALUES (?)", (issue,))
     
-    # Data produk
+    conn.commit()
+    conn.close()
+
+def insert_produk_data():
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    
+    # Ambil mapping jenis kulit dan masalah kulit
+    cursor.execute("SELECT id, nama FROM jenis_kulit")
+    jenis_mapping = {row[1]: row[0] for row in cursor.fetchall()}
+    
+    cursor.execute("SELECT id, nama FROM masalah_kulit")
+    masalah_mapping = {row[1]: row[0] for row in cursor.fetchall()}
+    
+    # Data produk (dictionary)
     produk_data = [
-        # Produk untuk skincare diagnosis
-        ('Acid Acne Gel Cleanser', 'Membersihkan jerawat dan komedo dengan formula AHA/BHA.', 'Rp 150.000', 'assets/images/skincare/acid_acne_gel.jpg', 'skincare'),
-        ('Aqua Light Daily Sunscreen SPF35 PA+++', 'Melindungi kulit dari sinar UV dengan tekstur ringan.', 'Rp 200.000', 'assets/images/skincare/aqua_light_sunscreen.jpg', 'skincare'),
-        # Produk untuk sunscreen (berdasarkan jenis kulit)
-        ('Aqua Light Daily Sunscreen SPF35 PA+++', 'Sunscreen khusus untuk kulit Berminyak.', 'Rp 200.000', 'assets/images/skincare/aqua_light_sunscreen.jpg', 'sunscreen'),
-        ('Matte Finish Sunscreen SPF30', 'Sunscreen dengan hasil matte untuk kulit Kombinasi.', 'Rp 210.000', 'assets/images/skincare/matte_finish_sunscreen.jpg', 'sunscreen'),
-        ('Universal Sunscreen SPF50', 'Sunscreen yang cocok untuk Semua Jenis Kulit.', 'Rp 220.000', 'assets/images/skincare/universal_sunscreen.jpg', 'sunscreen'),
-        ('Sensitive Skin Sunscreen SPF30', 'Sunscreen lembut untuk kulit Sensitif.', 'Rp 230.000', 'assets/images/skincare/sensitive_sunscreen.jpg', 'sunscreen'),
-        ('Acne-prone Sunscreen SPF40', 'Sunscreen untuk kulit Berjerawat yang tidak menyumbat pori.', 'Rp 240.000', 'assets/images/skincare/acne_prone_sunscreen.jpg', 'sunscreen')
+        {
+            "nama": "3x Acid Acne Gel Cleanser",
+            "jenis_kulit": "Berminyak",
+            "issues": ["Jerawat", "Kulit Berminyak", "Komedo"],
+            "deskripsi": "Membersihkan jerawat dan komedo dengan efektif.",
+            "harga": "Rp150.000",
+            "gambar_path": "assets/images/skincare/acid_acne_gel.jpg",
+            "kategori": "skincare"
+        },
+        {
+            "nama": "5X Ceramide Pembersih pH Rendah",
+            "jenis_kulit": "Kering",
+            "issues": ["Skin Barrier Bermasalah", "Dehidrasi"],
+            "deskripsi": "Membersihkan dengan formula pH rendah.",
+            "harga": "Rp120.000",
+            "gambar_path": "assets/images/skincare/ceramide_pembersih.jpg",
+            "kategori": "skincare"
+        },
+        {
+            "nama": "Amino Acid Gentle Cleansing Mousse",
+            "jenis_kulit": "Kering",
+            "issues": ["Skin Barrier Bermasalah", "Dehidrasi"],
+            "deskripsi": "Mousse lembut untuk membersihkan kulit.",
+            "harga": "Rp130.000",
+            "gambar_path": "assets/images/skincare/amino_acid_mousse.jpg",
+            "kategori": "skincare"
+        },
+        {
+            "nama": "Panthenol Gentle Gel Cleanser",
+            "jenis_kulit": "Kombinasi",
+            "issues": ["Kulit Berminyak", "Komedo"],
+            "deskripsi": "Gel cleanser yang lembut.",
+            "harga": "Rp140.000",
+            "gambar_path": "assets/images/skincare/panthenol_gel.jpg",
+            "kategori": "skincare"
+        },
+        {
+            "nama": "5X CERAMIDE SOOTHING TONER",
+            "jenis_kulit": "Kering",
+            "issues": ["Skin Barrier Bermasalah", "Kemerahan"],
+            "deskripsi": "Toner yang menenangkan kulit.",
+            "harga": "Rp110.000",
+            "gambar_path": "assets/images/skincare/ceramide_soothing_toner.jpg",
+            "kategori": "skincare"
+        },
+        {
+            "nama": "4D Hyaluronic Acid Barrier Essence Toner",
+            "jenis_kulit": "Kering",
+            "issues": ["Dehidrasi", "Skin Barrier Bermasalah"],
+            "deskripsi": "Essence toner dengan 4D Hyaluronic Acid.",
+            "harga": "Rp160.000",
+            "gambar_path": "assets/images/skincare/hyaluronic_essence.jpg",
+            "kategori": "skincare"
+        },
+        {
+            "nama": "Glycolic Acid Daily Clarifying Toner",
+            "jenis_kulit": "Berminyak",
+            "issues": ["Jerawat", "Komedo"],
+            "deskripsi": "Toner pengelupasan dengan Glycolic Acid.",
+            "harga": "Rp155.000",
+            "gambar_path": "assets/images/skincare/glycolic_acid_toner.jpg",
+            "kategori": "skincare"
+        },
+        {
+            "nama": "5X Ceramide Barrier Repair Moisture Gel",
+            "jenis_kulit": "Semua Jenis Kulit",
+            "issues": ["Skin Barrier Bermasalah", "Kemerahan", "Dehidrasi", "Kulit Bertekstur"],
+            "deskripsi": "Gel pelembab dengan 5X Ceramide.",
+            "harga": "Rp170.000",
+            "gambar_path": "assets/images/skincare/ceramide_repair_gel.jpg",
+            "kategori": "skincare"
+        },
+        {
+            "nama": "Retinol Skin Renewal Moisturizer",
+            "jenis_kulit": "Semua Jenis Kulit",
+            "issues": ["Kusam", "Skin Barrier Bermasalah", "Penuaan Dini"],
+            "deskripsi": "Moisturizer dengan Retinol untuk peremajaan kulit.",
+            "harga": "Rp200.000",
+            "gambar_path": "assets/images/skincare/retinol_moisturizer.jpg",
+            "kategori": "skincare"
+        },
+        {
+            "nama": "Sensitive Moisture Gel",
+            "jenis_kulit": "Sensitif",
+            "issues": ["Kemerahan", "Skin Barrier Bermasalah", "Dehidrasi"],
+            "deskripsi": "Gel pelembab untuk kulit sensitif.",
+            "harga": "Rp180.000",
+            "gambar_path": "assets/images/skincare/sensitive_moisture.jpg",
+            "kategori": "skincare"
+        },
+        {
+            "nama": "Symwhite 377 Dark Spot Moisture Gel",
+            "jenis_kulit": "Semua Jenis Kulit",
+            "issues": ["Noda Hitam", "Bintik Hitam", "Penuaan Dini"],
+            "deskripsi": "Gel untuk mengatasi noda hitam.",
+            "harga": "Rp190.000",
+            "gambar_path": "assets/images/skincare/symwhite_moisture.jpg",
+            "kategori": "skincare"
+        },
+        {
+            "nama": "Truffle Biome Skin Reborn Cream Gel Moisturizer",
+            "jenis_kulit": "Sensitif",
+            "issues": ["Jerawat", "Kemerahan", "Iritasi"],
+            "deskripsi": "Moisturizer dengan Truffle Biome untuk kulit sensitif.",
+            "harga": "Rp210.000",
+            "gambar_path": "assets/images/skincare/truffle_reborn.jpg",
+            "kategori": "skincare"
+        },
+        {
+            "nama": "Symwhite 377 Dark Spot Serum",
+            "jenis_kulit": "Semua Jenis Kulit",
+            "issues": ["Bintik Hitam", "Warna Kulit Tidak Merata"],
+            "deskripsi": "Serum untuk mencerahkan dan meratakan warna kulit.",
+            "harga": "Rp220.000",
+            "gambar_path": "assets/images/skincare/symwhite_serum.jpg",
+            "kategori": "skincare"
+        },
+        {
+            "nama": "Niacinamide Brightening Serum",
+            "jenis_kulit": "Semua Jenis Kulit",
+            "issues": ["Kusam", "Warna Kulit Tidak Merata"],
+            "deskripsi": "Serum dengan Niacinamide untuk mencerahkan kulit.",
+            "harga": "Rp230.000",
+            "gambar_path": "assets/images/skincare/niacinamide_serum.jpg",
+            "kategori": "skincare"
+        },
+        {
+            "nama": "Retinol Skin Renewal Serum",
+            "jenis_kulit": "Semua Jenis Kulit",
+            "issues": ["Tekstur Tidak Merata", "Jerawat", "Penuaan Dini"],
+            "deskripsi": "Serum dengan Retinol untuk regenerasi kulit.",
+            "harga": "Rp240.000",
+            "gambar_path": "assets/images/skincare/retinol_serum.jpg",
+            "kategori": "skincare"
+        },
+        {
+            "nama": "Salicylic Acid Anti-Acne Serum",
+            "jenis_kulit": "Kulit Berjerawat",
+            "issues": ["Jerawat", "Bintik Hitam", "Skin Barrier Bermasalah"],
+            "deskripsi": "Serum anti jerawat dengan Salicylic Acid.",
+            "harga": "Rp250.000",
+            "gambar_path": "assets/images/skincare/salicylic_serum.jpg",
+            "kategori": "skincare"
+        },
+        {
+            "nama": "5X Ceramide Skin Barrier Repair Serum",
+            "jenis_kulit": "Semua Jenis Kulit",
+            "issues": ["Skin Barrier Bermasalah", "Kemerahan"],
+            "deskripsi": "Serum perbaikan skin barrier dengan 5X Ceramide.",
+            "harga": "Rp260.000",
+            "gambar_path": "assets/images/skincare/ceramide_repair_serum.jpg",
+            "kategori": "skincare"
+        },
+        {
+            "nama": "5X Ceramide Serum Sunscreen SPF50 PA++++",
+            "jenis_kulit": "Semua Jenis Kulit",
+            "issues": [],
+            "deskripsi": "Sunscreen dengan perlindungan tinggi SPF50 PA++++.",
+            "harga": "Rp270.000",
+            "gambar_path": "assets/images/skincare/ceramide_sunscreen.jpg",
+            "kategori": "sunscreen"
+        },
+        {
+            "nama": "Aqua Light Daily Sunscreen SPF35 PA+++",
+            "jenis_kulit": "Berminyak",
+            "issues": [],
+            "deskripsi": "Sunscreen ringan dengan perlindungan SPF35 PA+++.",
+            "harga": "Rp280.000",
+            "gambar_path": "assets/images/skincare/aqua_light_sunscreen.jpg",
+            "kategori": "sunscreen"
+        },
+        {
+            "nama": "Light Serum Sunscreen SPF50 PA++++",
+            "jenis_kulit": "Berminyak",
+            "issues": [],
+            "deskripsi": "Sunscreen dengan finish ringan dan perlindungan SPF50 PA++++.",
+            "harga": "Rp290.000",
+            "gambar_path": "assets/images/skincare/light_serum_sunscreen.jpg",
+            "kategori": "sunscreen"
+        },
+        {
+            "nama": "Matte Fit Serum Sunscreen SPF50+ PA++++",
+            "jenis_kulit": "Berminyak",
+            "issues": [],
+            "deskripsi": "Sunscreen dengan hasil matte dan perlindungan SPF50+ PA++++.",
+            "harga": "Rp300.000",
+            "gambar_path": "assets/images/skincare/matte_fit_sunscreen.jpg",
+            "kategori": "sunscreen"
+        },
+        {
+            "nama": "Outdoor Sunscreen Spray SPF50+ PA++++",
+            "jenis_kulit": "Semua Jenis Kulit",
+            "issues": [],
+            "deskripsi": "Sunscreen spray untuk perlindungan luar ruangan.",
+            "harga": "Rp310.000",
+            "gambar_path": "assets/images/skincare/outdoor_sunscreen.jpg",
+            "kategori": "sunscreen"
+        }
     ]
-    cursor.executemany('INSERT INTO produk (nama, deskripsi, harga, gambar_path, kategori) VALUES (?, ?, ?, ?, ?)', produk_data)
     
-    # Aturan untuk skincare diagnosis (mempertimbangkan jenis kulit dan masalah kulit)
-    # Contoh: Jika kulit Berminyak dan masalah kulit mencakup Jerawat dan Komedo, rekomendasi adalah kombinasi produk.
-    aturan_data = [
-        ('skincare', 'Berminyak', 'Jerawat,Komedo', '1,2', 'Paket rekomendasi untuk kulit Berminyak dengan jerawat dan komedo.')
-        # Tambahkan aturan lain sesuai logika yang diinginkan.
-    ]
-    cursor.executemany('INSERT INTO aturan (kategori, skin_type, skin_issues, rekomendasi_produk_ids, deskripsi) VALUES (?, ?, ?, ?, ?)', aturan_data)
-    
-    # Aturan untuk sunscreen (hanya berdasarkan jenis kulit)
-    sunscreen_rules = [
-        ('sunscreen', 'Berminyak', None, '3', 'Sunscreen untuk kulit Berminyak.'),
-        ('sunscreen', 'Kombinasi', None, '4', 'Sunscreen untuk kulit Kombinasi.'),
-        ('sunscreen', 'Semua Jenis Kulit', None, '5', 'Sunscreen untuk Semua Jenis Kulit.'),
-        ('sunscreen', 'Sensitif', None, '6', 'Sunscreen untuk kulit Sensitif.'),
-        ('sunscreen', 'Kulit Berjerawat', None, '7', 'Sunscreen untuk kulit Berjerawat.')
-    ]
-    cursor.executemany('INSERT INTO aturan (kategori, skin_type, skin_issues, rekomendasi_produk_ids, deskripsi) VALUES (?, ?, ?, ?, ?)', sunscreen_rules)
+    # Sisipkan data produk dan relasi ke masalah kulit
+    for prod in produk_data:
+        jenis_id = jenis_mapping.get(prod["jenis_kulit"])
+        cursor.execute('''
+            INSERT INTO produk (nama, jenis_kulit_id, deskripsi, harga, gambar_path, kategori)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (prod["nama"], jenis_id, prod["deskripsi"], prod["harga"], prod["gambar_path"], prod["kategori"]))
+        produk_id = cursor.lastrowid
+        
+        # Jika produk memiliki issues, sisipkan relasi ke tabel produk_masalah
+        if prod["issues"]:
+            for issue in prod["issues"]:
+                masalah_id = masalah_mapping.get(issue)
+                if masalah_id:
+                    cursor.execute('''
+                        INSERT INTO produk_masalah (produk_id, masalah_kulit_id)
+                        VALUES (?, ?)
+                    ''', (produk_id, masalah_id))
     
     conn.commit()
     conn.close()
 
 if __name__ == '__main__':
+    drop_tables()      # Drop tabel lama agar skema baru terpaksa dibuat ulang
     create_tables()
-    insert_dummy_data()
+    insert_reference_data()
+    insert_produk_data()
     print("Database setup completed!")

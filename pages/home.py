@@ -9,12 +9,15 @@ option = st.sidebar.selectbox("Pilih Menu", ["Diagnosis Skincare", "Rekomendasi 
 
 if option == "Diagnosis Skincare":
     st.header("Diagnosis Skincare")
-    # Pilihan jenis kulit
     skin_types = ["Berminyak", "Kombinasi", "Semua Jenis Kulit", "Sensitif", "Kulit Berjerawat"]
     selected_skin_type = st.radio("Pilih Jenis Kulit Anda", skin_types)
     
-    # Pilihan masalah kulit (minimal 2, maksimal 3)
-    skin_issues_options = ["Jerawat", "Komedo", "Pori-pori besar", "Kulit kering", "Bekas jerawat"]
+    skin_issues_options = [
+        "Jerawat", "Kulit Berminyak", "Komedo", "Skin Barrier Bermasalah", 
+        "Dehidrasi", "Kemerahan", "Kulit Bertekstur", "Kusam", 
+        "Penuaan Dini", "Noda Hitam", "Bintik Hitam", "Warna Kulit Tidak Merata", 
+        "Tekstur Tidak Merata", "Iritasi"
+    ]
     selected_skin_issues = st.multiselect("Pilih Masalah Kulit (minimal 2, maksimal 3)", skin_issues_options)
     
     if st.button("Diagnosa Skincare"):
